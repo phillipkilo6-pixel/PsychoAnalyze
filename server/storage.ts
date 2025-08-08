@@ -1,5 +1,6 @@
-import { type User, type InsertUser, type Conversation, type InsertConversation, type Analysis, type InsertAnalysis } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { users, conversations, analyses, type User, type InsertUser, type Conversation, type InsertConversation, type Analysis, type InsertAnalysis } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -15,75 +16,58 @@ export interface IStorage {
   getAnalyses(): Promise<Analysis[]>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-  private conversations: Map<string, Conversation>;
-  private analyses: Map<string, Analysis>;
-
-  constructor() {
-    this.users = new Map();
-    this.conversations = new Map();
-    this.analyses = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
+    const [user] = await db
+      .insert(users)
+      .values(insertUser)
+      .returning();
     return user;
   }
 
   async createConversation(insertConversation: InsertConversation): Promise<Conversation> {
-    const id = randomUUID();
-    const conversation: Conversation = { 
-      ...insertConversation, 
-      id, 
-      createdAt: new Date() 
-    };
-    this.conversations.set(id, conversation);
+    const [conversation] = await db
+      .insert(conversations)
+      .values(insertConversation)
+      .returning();
     return conversation;
   }
 
   async getConversation(id: string): Promise<Conversation | undefined> {
-    return this.conversations.get(id);
+    const [conversation] = await db.select().from(conversations).where(eq(conversations.id, id));
+    return conversation || undefined;
   }
 
   async getConversations(): Promise<Conversation[]> {
-    return Array.from(this.conversations.values())
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db.select().from(conversations).orderBy(desc(conversations.createdAt));
   }
 
   async createAnalysis(insertAnalysis: InsertAnalysis): Promise<Analysis> {
-    const id = randomUUID();
-    const analysis: Analysis = { 
-      ...insertAnalysis, 
-      id, 
-      createdAt: new Date() 
-    };
-    this.analyses.set(id, analysis);
+    const [analysis] = await db
+      .insert(analyses)
+      .values(insertAnalysis)
+      .returning();
     return analysis;
   }
 
   async getAnalysis(conversationId: string): Promise<Analysis | undefined> {
-    return Array.from(this.analyses.values()).find(
-      (analysis) => analysis.conversationId === conversationId
-    );
+    const [analysis] = await db.select().from(analyses).where(eq(analyses.conversationId, conversationId));
+    return analysis || undefined;
   }
 
   async getAnalyses(): Promise<Analysis[]> {
-    return Array.from(this.analyses.values())
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return await db.select().from(analyses).orderBy(desc(analyses.createdAt));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
