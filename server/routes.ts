@@ -2,7 +2,10 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertConversationSchema, insertAnalysisSchema } from "@shared/schema";
-import { analyzeConversation, type ConversationAnalysisRequest } from "./services/openai";
+import {
+  analyzeConversation,
+  type ConversationAnalysisRequest,
+} from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Create conversation
@@ -96,12 +99,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const analyses = await storage.getAnalyses();
       const conversations = await storage.getConversations();
-      
-      const analysesWithConversations = analyses.map(analysis => {
-        const conversation = conversations.find(c => c.id === analysis.conversationId);
+
+      const analysesWithConversations = analyses.map((analysis) => {
+        const conversation = conversations.find(
+          (c) => c.id === analysis.conversationId,
+        );
         return { ...analysis, conversation };
       });
-      
+
       res.json(analysesWithConversations);
     } catch (error: any) {
       res.status(500).json({ message: error.message });
